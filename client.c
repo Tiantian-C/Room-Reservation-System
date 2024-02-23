@@ -15,7 +15,7 @@
  * Named Constants
  */
 #define LOCAL_HOST "127.0.0.1" // Host address
-#define Main_Client_TCP_PORT 44074 // Main port number
+#define Main_Client_TCP_PORT 45074 // Main port number
 #define MAXDATASIZE 1024 // max number of bytes we can get at once
 #define FAIL -1 // socket fails if result = -1
 
@@ -67,7 +67,7 @@ void create_client_socket_TCP() {
 void init_Main_connection() {
 
     // *** Beej’s guide to network programming - 9.24. struct sockaddr and pals ***
-    // Initialize TCP connection between client and AWS server using specified IP address and port number
+    // Initialize TCP connection between client and Main server using specified IP address and port number
     memset(&main_addr, 0, sizeof(main_addr)); //  make sure the struct is empty
     main_addr.sin_family = AF_INET; // Use IPv4 address family
     main_addr.sin_addr.s_addr = inet_addr(LOCAL_HOST); // Source address
@@ -130,7 +130,7 @@ int main(){
         close(sockfd_client_TCP);
         exit(1);
     }
-    printf("The client sent write operation to AWS \n");
+    printf("The client sent login information to Main Server\n");
 
     // /******    Step 5:  Get write result back from AWS Server    *******/
     // if (recv(sockfd_client_TCP, write_result, sizeof(write_result), 0) == FAIL) {
