@@ -10,10 +10,9 @@
 #include <netdb.h>
 #include <string.h>
 
-#define LOCAL_HOST "127.0.0.1"  // Host address
-#define Main_UDP_PORT 44074     // Main UDP port number
-#define Main_TCP_PORT_ONE 45074 // Main TCP port number
-#define Main_TCP_PORT_TWO 45075 // Main TCP port number
+#define LOCAL_HOST "127.0.0.1" // Host address
+#define Main_UDP_PORT 44074    // Main UDP port number
+#define Main_TCP_PORT 45074    // Main TCP port number
 
 #define ServerS_PORT 41074
 #define ServerD_PORT 42074
@@ -37,9 +36,9 @@ typedef struct
 User users[MAX_USERS];
 int userCount = 0;
 
-int sockfd_UDP;                     // UDP socket
-int sockfd_TCP_one, sockfd_TCP_two; // TCP parent socket
-int child_sockfd;                   // TCP child socket
+int sockfd_UDP;   // UDP socket
+int sockfd_TCP;   // TCP parent socket
+int child_sockfd; // TCP child socket
 
 struct sockaddr_in main_UDP_addr, main_member_addr, main_guest_addr;
 struct sockaddr_in dest_serverS_addr, dest_serverD_addr, dest_serverU_addr, dest_member_addr; // When Main server works as a client
@@ -55,16 +54,10 @@ void readMembersFromFile(const char *filename);
 void create_UDP_socket();
 
 // 2. Create TCP socket w/ member & bind socket
-void create_TCP_socket_one();
+void create_TCP_socket();
 
-// 3. Create TCP socket w/guest & bind socket
-void create_TCP_socket_two();
-
-// 4. Listen for member
+// 3. Listen for clients
 void listen_client_one();
-
-// 5. Listen for guest
-void listen_client_two();
 
 void init_connection_serverS();
 
@@ -119,10 +112,10 @@ void create_UDP_socket()
 /**
  * Step 2: Create TCP socket for member client & bind socket
  */
-void create_TCP_socket_one()
+void create_TCP_socket()
 {
-    sockfd_TCP_one = socket(AF_INET, SOCK_STREAM, 0); // Create TCP socket
-    if (sockfd_TCP_one == FAIL)
+    sockfd_TCP = socket(AF_INET, SOCK_STREAM, 0); // Create TCP socket
+    if (sockfd_TCP == FAIL)
     {
         perror("[ERROR] Main server: fail to create socket for client");
         exit(1);
@@ -132,56 +125,22 @@ void create_TCP_socket_one()
     memset(&main_member_addr, 0, sizeof(main_member_addr));   //  make sure the struct is empty
     main_member_addr.sin_family = AF_INET;                    // Use IPv4 address family
     main_member_addr.sin_addr.s_addr = inet_addr(LOCAL_HOST); // Host IP address
-    main_member_addr.sin_port = htons(Main_TCP_PORT_ONE);     // Port number for client
+    main_member_addr.sin_port = htons(Main_TCP_PORT);         // Port number for client
 
     // Bind socket for client with IP address and port number for client
-    if (bind(sockfd_TCP_one, (struct sockaddr *)&main_member_addr, sizeof(main_member_addr)) == FAIL)
+    if (bind(sockfd_TCP, (struct sockaddr *)&main_member_addr, sizeof(main_member_addr)) == FAIL)
     {
         perror("[ERROR] Main server: fail to bind client socket");
         exit(1);
     }
 }
 
-void create_TCP_socket_two()
-{
-    sockfd_TCP_two = socket(AF_INET, SOCK_STREAM, 0); // TCP socket
-    if (sockfd_TCP_two == FAIL)
-    {
-        perror("[ERROR] AWS server: fail to create socket for monitor");
-        exit(1);
-    }
-
-    // Initialize IP address, port number
-    memset(&main_guest_addr, 0, sizeof(main_guest_addr));    //  make sure the struct is empty
-    main_guest_addr.sin_family = AF_INET;                    // Use IPv4 address family
-    main_guest_addr.sin_addr.s_addr = inet_addr(LOCAL_HOST); // Host IP address
-    main_guest_addr.sin_port = htons(Main_TCP_PORT_TWO);     // Port number for guest
-
-    // Bind socket
-    if (bind(sockfd_TCP_two, (struct sockaddr *)&main_guest_addr, sizeof(main_guest_addr)) == FAIL)
-    {
-        perror("[ERROR] AWS server: fail to bind monitor socket");
-        exit(1);
-    }
-};
 /**
- * Step 3: Listen for incoming connection from client one
+ * Step 3: Listen for incoming connection from clients
  */
-void listen_client_one()
+void listen_client()
 {
-    if (listen(sockfd_TCP_one, BACKLOG) == FAIL)
-    {
-        perror("[ERROR] AWS server: fail to listen for client socket");
-        exit(1);
-    }
-}
-
-/**
- * Step 4: Listen for incoming connection from client two
- */
-void listen_client_two()
-{
-    if (listen(sockfd_TCP_two, BACKLOG) == FAIL)
+    if (listen(sockfd_TCP, BACKLOG) == FAIL)
     {
         perror("[ERROR] AWS server: fail to listen for client socket");
         exit(1);
@@ -215,24 +174,52 @@ void init_connection_serverU()
     dest_serverU_addr.sin_port = htons(ServerD_PORT);
 }
 
+// int validateUser(const char *username, const char *password)
+// {
+//     for (int i = 0; i < userCount; i++)
+//     {
+//         if (strcmp(users[i].username, username) == 0 && strcmp(users[i].password, password) == 0)
+//         {
+//             return 1; // login success
+//         }
+//         else if (strcmp(users[i].username, username) != 0 && strcmp(users[i].password, password) == 0)
+//         {
+//             return 2;
+//         }
+//         else if (strcmp(users[i].username, username) == 0 && strcmp(users[i].password, password) != 0)
+//         {
+//             return 3;
+//         }
+//     }
+//     return 0; // login failed
+// }
+
 int validateUser(const char *username, const char *password)
 {
+    int usernameFound = 0; // 用于标记是否找到用户名
+
     for (int i = 0; i < userCount; i++)
     {
-        if (strcmp(users[i].username, username) == 0 && strcmp(users[i].password, password) == 0)
+        if (strcmp(users[i].username, username) == 0)
         {
-            return 1; // login success
-        }
-        else if (strcmp(users[i].username, username) != 0 && strcmp(users[i].password, password) == 0)
-        {
-            return 2;
-        }
-        else if (strcmp(users[i].username, username) == 0 && strcmp(users[i].password, password) != 0)
-        {
-            return 3;
+            usernameFound = 1; // 找到了用户名
+            if (strcmp(users[i].password, password) == 0)
+            {
+                return 1; // 登录成功
+            }
+            else
+            {
+                return 3; // 用户名匹配，但密码不匹配
+            }
         }
     }
-    return 0; // login failed
+
+    if (!usernameFound)
+    {
+        return 2; // 没有找到用户名
+    }
+
+    return 0; // 默认返回登录失败（这个情况应该不会发生，因为已经覆盖了所有可能）
 }
 
 int main()
@@ -241,10 +228,8 @@ int main()
     readMembersFromFile("member.txt"); // 调用函数读取文件
 
     // Create TCP socket & bind socket
-    create_TCP_socket_one();
-    listen_client_one();
-    create_TCP_socket_two();
-    listen_client_two();
+    create_TCP_socket();
+    listen_client();
 
     // Create and bind the UDP socket
     create_UDP_socket();
@@ -260,35 +245,35 @@ int main()
     socklen_t dest_serverS_size = sizeof(dest_serverS_addr);
     if (recvfrom(sockfd_UDP, S_room_status, 1, 0, (struct sockaddr *)&dest_serverS_addr, &dest_serverS_size) == FAIL)
     {
-        perror("[ERROR] AWS: fail to receive writing result from Server S");
+        perror("[ERROR] AWS: fail to receive writing result from Server S.");
         exit(1);
     }
-    printf("The main server has received the room status from Server S using UDP over port %d\n", Main_UDP_PORT);
+    printf("The main server has received the room status from Server S using UDP over port %d.\n", Main_UDP_PORT);
 
     // Receive from Server D: Initail roomstatus from D
     socklen_t dest_serverD_size = sizeof(dest_serverD_addr);
     if (recvfrom(sockfd_UDP, D_room_status, 1, 0, (struct sockaddr *)&dest_serverD_addr, &dest_serverD_size) == FAIL)
     {
-        perror("[ERROR] Main: fail to receive writing result from Server D");
+        perror("[ERROR] Main: fail to receive writing result from Server D.");
         exit(1);
     }
-    printf("The main server has received the room status from Server D using UDP over port %d\n", Main_UDP_PORT);
+    printf("The main server has received the room status from Server D using UDP over port %d.\n", Main_UDP_PORT);
 
     // Receive from Server U: Initail roomstatus from U
     socklen_t dest_serverU_size = sizeof(dest_serverU_addr);
     if (recvfrom(sockfd_UDP, U_room_status, 1, 0, (struct sockaddr *)&dest_serverU_addr, &dest_serverU_size) == FAIL)
     {
-        perror("[ERROR] Main: fail to receive writing result from Server U");
+        perror("[ERROR] Main: fail to receive writing result from Server U.");
         exit(1);
     }
-    printf("The main server has received the room status from Server U using UDP over port %d\n", Main_UDP_PORT);
+    printf("The main server has received the room status from Server U using UDP over port %d.\n", Main_UDP_PORT);
 
     struct sockaddr_in their_addr; // client's address
     socklen_t sin_size = sizeof(their_addr);
 
     while (1)
     { // main accept loop
-        child_sockfd = accept(sockfd_TCP_one, (struct sockaddr *)&their_addr, &sin_size);
+        child_sockfd = accept(sockfd_TCP, (struct sockaddr *)&their_addr, &sin_size);
         if (child_sockfd == -1)
         {
             perror("accept");
@@ -300,41 +285,64 @@ int main()
         if (!fork())
         {
             // This is child process
-            close(sockfd_TCP_one); // child process don't need lisener
+            close(sockfd_TCP); // child process don't need lisener
             // a connection with client
             // 使用send(), recv()等函数与客户端进行通信
             int recv_client = recv(child_sockfd, login_buf, MAXDATASIZE, 0);
             if (recv_client == FAIL)
             {
-                perror("[ERROR] AWS server: fail to receive input data from client");
+                perror("[ERROR] Main server: fail to receive login data from client.");
                 exit(1);
             }
 
-            // login_buf[recv_client] = '\0'; // 人为添加字符串结束符，确保安全打印
-            // printf("Received from client: %s\n", login_buf);
-            // 假设login_buf已由recv函数填充
+            char type[10]; // 用户类型：member 或 guest
+            char unencrypted_username[MAX_NAME_LENGTH];
             char username[MAX_NAME_LENGTH];
             char password[MAX_PASS_LENGTH];
-            sscanf(login_buf, "%49[^,],%49s", username, password);
+            // sscanf(login_buf, "%49[^,],%49s", username, password);
+            int numItems = sscanf(login_buf, "%[^,],%[^,],%[^,],%s", type, unencrypted_username, username, password);
 
-            printf("The main server has received the authentication for %s using TCP over port %d.\n", username, Main_UDP_PORT);
+            char welcomeMessage[1024];
 
-            if (validateUser(username, password) == 1)
+            if (strcmp(type, "guest") == 0)
             {
-                // if login success
-                send(child_sockfd, "login success", strlen("login success"), 0);
-                printf("The main server sent authentication result to the client.");
-            }
-            else if (validateUser(username, password) == 2)
-            {
-                // if not login fail
+                // 访客逻辑处理
+                printf("The main server has received the guest request for %s using TCP over port %d.\n", unencrypted_username, Main_TCP_PORT);
 
-                printf("username does not exist.");
+                // 格式化欢迎消息，将未加密的用户名插入到消息中
+                snprintf(welcomeMessage, sizeof(welcomeMessage), "Welcome guest %s!", unencrypted_username);
+                send(child_sockfd, welcomeMessage, strlen(welcomeMessage), 0);
+                printf("The main server sent guest response to the client.\n");
             }
-            else if (validateUser(username, password) == 3)
+            else if (strcmp(type, "member") == 0 && numItems >= 3)
             {
-                printf("password not match.");
+                // 成员逻辑处理
+                printf("The main server has received the authentication for %s using TCP over port %d.\n", unencrypted_username, Main_TCP_PORT);
+
+                // 对于成员，我们有未加密的用户名、加密的用户名和加密的密码
+                if (validateUser(username, password) == 1)
+                {
+                    // if login success
+                    snprintf(welcomeMessage, sizeof(welcomeMessage), "Welcome member %s!", unencrypted_username);
+
+                    send(child_sockfd, welcomeMessage, strlen(welcomeMessage), 0);
+                    printf("The main server sent authentication result to the client.\n");
+                }
+                else if (validateUser(username, password) == 2)
+                {
+                    // Username does not exist
+                    char *message = "Failed login: Username does not exist.";
+                    send(child_sockfd, message, strlen(message) + 1, 0);
+                    printf("The main server sent authentication result to the client.\n");
+                }
+                else if (validateUser(username, password) == 3)
+                {
+                    char *message = "Failed login: Password does not match.";
+                    send(child_sockfd, message, strlen(message) + 1, 0);
+                    printf("The main server sent authentication result to the client.\n");
+                }
             }
+
             close(child_sockfd); // 处理完客户端请求后关闭连接
             exit(0);
         }
