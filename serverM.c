@@ -25,6 +25,9 @@
 #define MAX_NAME_LENGTH 50
 #define MAX_PASS_LENGTH 50
 
+#define MAX_ROOMCODE_SIZE 15
+#define MAX_OPTION_SIZE 20
+
 // 用户结构体定义
 typedef struct
 {
@@ -40,6 +43,8 @@ int sockfd_UDP;   // UDP socket
 int sockfd_TCP;   // TCP parent socket
 int child_sockfd; // TCP child socket
 
+int isMember = 0;
+
 struct sockaddr_in main_UDP_addr, main_member_addr, main_guest_addr;
 struct sockaddr_in dest_serverS_addr, dest_serverD_addr, dest_serverU_addr, dest_member_addr; // When Main server works as a client
 
@@ -48,6 +53,17 @@ char D_room_status[MAXDATASIZE]; // Initail double room status returned from ser
 char U_room_status[MAXDATASIZE]; // Initail suite room status returned from server U
 
 char login_buf[MAXDATASIZE]; // login data from client
+char type[10];               // client type：member/guest
+char unencrypted_username[MAX_NAME_LENGTH];
+char username[MAX_NAME_LENGTH];
+char password[MAX_PASS_LENGTH];
+
+char check_room_buf[MAXDATASIZE];
+char original_check_room_buf[MAXDATASIZE];
+char roomcode[MAX_ROOMCODE_SIZE];
+char option[MAX_OPTION_SIZE];
+char room_availability_buf[MAXDATASIZE]; // single room availability returned from server S
+char room_reservation_buf[MAXDATASIZE];  // single room reservation returned from server S
 
 void readMembersFromFile(const char *filename);
 // 1. Create UDP socket and bind socket
@@ -174,26 +190,6 @@ void init_connection_serverU()
     dest_serverU_addr.sin_port = htons(ServerD_PORT);
 }
 
-// int validateUser(const char *username, const char *password)
-// {
-//     for (int i = 0; i < userCount; i++)
-//     {
-//         if (strcmp(users[i].username, username) == 0 && strcmp(users[i].password, password) == 0)
-//         {
-//             return 1; // login success
-//         }
-//         else if (strcmp(users[i].username, username) != 0 && strcmp(users[i].password, password) == 0)
-//         {
-//             return 2;
-//         }
-//         else if (strcmp(users[i].username, username) == 0 && strcmp(users[i].password, password) != 0)
-//         {
-//             return 3;
-//         }
-//     }
-//     return 0; // login failed
-// }
-
 int validateUser(const char *username, const char *password)
 {
     int usernameFound = 0; // 用于标记是否找到用户名
@@ -222,6 +218,137 @@ int validateUser(const char *username, const char *password)
     return 0; // 默认返回登录失败（这个情况应该不会发生，因为已经覆盖了所有可能）
 }
 
+void handleRoomAvailabilityRequest(int child_sockfd, struct sockaddr_in dest_server_addr, socklen_t dest_server_size, char *server)
+{
+    if (sendto(sockfd_UDP, original_check_room_buf, sizeof(original_check_room_buf), 0, (struct sockaddr *)&dest_server_addr, dest_server_size) < 0)
+    {
+        perror("[ERROR] Server main: fail to send check room request to server S/U/D");
+        exit(1);
+    }
+    printf("The main server sent a request to Server %s.\n", server);
+
+    if (recvfrom(sockfd_UDP, room_availability_buf, sizeof(room_availability_buf), 0, (struct sockaddr *)&dest_server_addr, &dest_server_size) == FAIL)
+    {
+        perror("[ERROR] Main: fail to receive response from Server S/D/U.");
+        exit(1);
+    }
+    printf("The main server received the response from Server %s using UDP over port %d.\n", server, Main_UDP_PORT);
+
+    send(child_sockfd, room_availability_buf, sizeof(room_availability_buf), 0);
+    printf("The main server sent availbility infomation to the client.\n");
+}
+
+void handleRoomReservationRequest(int child_sockfd, struct sockaddr_in dest_server_addr, socklen_t dest_server_size, char *server, char *unencrypted_username)
+{
+    if (sendto(sockfd_UDP, original_check_room_buf, sizeof(original_check_room_buf), 0, (struct sockaddr *)&dest_server_addr, dest_server_size) < 0)
+    {
+        perror("[ERROR] Server main: fail to send reservation room request to server S/D/U");
+        exit(1);
+    }
+    printf("The main server sent a request to Server %s.\n", server);
+
+    if (recvfrom(sockfd_UDP, room_reservation_buf, sizeof(room_reservation_buf), 0, (struct sockaddr *)&dest_server_addr, &dest_server_size) == FAIL)
+    {
+        perror("[ERROR] Main: fail to receive response from Server S.");
+        exit(1);
+    }
+    printf("The main server received the response and updated room status from Server %s using UDP over port %d.\n", server, Main_UDP_PORT);
+
+    send(child_sockfd, room_reservation_buf, sizeof(room_reservation_buf), 0);
+    printf("The main server sent reservation result to the client.\n");
+}
+
+void processClientRequest()
+{
+    // Initialize roomcode and option before use
+    memset(check_room_buf, 0, sizeof(check_room_buf));
+    memset(roomcode, 0, sizeof(roomcode));
+    memset(option, 0, sizeof(option));
+
+    // Availability/Reservation
+    int client_request = recv(child_sockfd, check_room_buf, MAXDATASIZE, 0);
+    if (client_request == FAIL)
+    {
+        perror("[ERROR] Main server: fail to receive client request from client.");
+        exit(1);
+    }
+
+    // 确保字符串以 null 结尾
+    check_room_buf[MAXDATASIZE - 1] = '\0';
+    strncpy(original_check_room_buf, check_room_buf, MAXDATASIZE - 1);
+    original_check_room_buf[MAXDATASIZE - 1] = '\0'; // Ensure null-termination
+
+    // Now, original_check_room_buf contains a copy of the unmodified data,
+    // get roomcode
+    char *token = strtok(check_room_buf, "|");
+    if (token != NULL)
+    {
+        strncpy(roomcode, token, MAX_ROOMCODE_SIZE - 1);
+        roomcode[MAX_ROOMCODE_SIZE - 1] = '\0'; // 确保字符串结束
+    }
+
+    // get option
+    token = strtok(NULL, "|");
+    if (token != NULL)
+    {
+        strncpy(option, token, MAX_OPTION_SIZE - 1);
+        option[MAX_OPTION_SIZE - 1] = '\0'; // 确保字符串结束
+    }
+}
+
+// dispatch room availability requests based on the room code
+void dispatchRoomAvailabilityRequest(socklen_t dest_serverS_size, socklen_t dest_serverD_size, socklen_t dest_serverU_size)
+{
+    printf("The main server has received the availability request on Room %s from %s using TCP over %d\n", roomcode, unencrypted_username, Main_TCP_PORT);
+    // 根据 roomcode 的首字母执行相应操作
+    switch (roomcode[0])
+    {
+    case 'S':
+        handleRoomAvailabilityRequest(child_sockfd, dest_serverS_addr, dest_serverS_size, "S");
+
+        break;
+    case 'D':
+        handleRoomAvailabilityRequest(child_sockfd, dest_serverD_addr, dest_serverD_size, "D");
+
+        break;
+    case 'U':
+        handleRoomAvailabilityRequest(child_sockfd, dest_serverU_addr, dest_serverU_size, "U");
+
+        break;
+
+    default:
+        // 错误处理
+        fprintf(stderr, "Error: Unrecognized roomcode starting letter.\n");
+        break;
+    }
+}
+
+void dispatchRoomReservationRequest(socklen_t dest_serverS_size, socklen_t dest_serverD_size, socklen_t dest_serverU_size)
+{
+    // Reservation Request
+    printf("The main server has received the reservation request on Room %s from %s using TCP over %d\n", roomcode, unencrypted_username, Main_TCP_PORT);
+    switch (roomcode[0])
+    {
+    case 'S':
+        handleRoomReservationRequest(child_sockfd, dest_serverS_addr, dest_serverS_size, "S", unencrypted_username);
+
+        break;
+    case 'D':
+        handleRoomReservationRequest(child_sockfd, dest_serverD_addr, dest_serverD_size, "D", unencrypted_username);
+
+        break;
+    case 'U':
+        handleRoomReservationRequest(child_sockfd, dest_serverU_addr, dest_serverU_size, "U", unencrypted_username);
+
+        break;
+
+    default:
+        // 错误处理
+        fprintf(stderr, "Error: Unrecognized roomcode starting letter.\n");
+        break;
+    }
+}
+
 int main()
 {
 
@@ -245,7 +372,7 @@ int main()
     socklen_t dest_serverS_size = sizeof(dest_serverS_addr);
     if (recvfrom(sockfd_UDP, S_room_status, 1, 0, (struct sockaddr *)&dest_serverS_addr, &dest_serverS_size) == FAIL)
     {
-        perror("[ERROR] AWS: fail to receive writing result from Server S.");
+        perror("[ERROR] Main: fail to receive writing result from Server S.");
         exit(1);
     }
     printf("The main server has received the room status from Server S using UDP over port %d.\n", Main_UDP_PORT);
@@ -286,8 +413,8 @@ int main()
         {
             // This is child process
             close(sockfd_TCP); // child process don't need lisener
-            // a connection with client
-            // 使用send(), recv()等函数与客户端进行通信
+
+            /************     receive login info from the client       ***********/
             int recv_client = recv(child_sockfd, login_buf, MAXDATASIZE, 0);
             if (recv_client == FAIL)
             {
@@ -295,38 +422,24 @@ int main()
                 exit(1);
             }
 
-            char type[10]; // 用户类型：member 或 guest
-            char unencrypted_username[MAX_NAME_LENGTH];
-            char username[MAX_NAME_LENGTH];
-            char password[MAX_PASS_LENGTH];
-            // sscanf(login_buf, "%49[^,],%49s", username, password);
-            int numItems = sscanf(login_buf, "%[^,],%[^,],%[^,],%s", type, unencrypted_username, username, password);
+            int numItems = sscanf(login_buf, "%[^,],%[^,],%s", unencrypted_username, username, password);
 
             char welcomeMessage[1024];
 
-            if (strcmp(type, "guest") == 0)
+            /**********   Validate User  Member or Guest**************/
+            if (numItems >= 3)
             {
-                // 访客逻辑处理
-                printf("The main server has received the guest request for %s using TCP over port %d.\n", unencrypted_username, Main_TCP_PORT);
 
-                // 格式化欢迎消息，将未加密的用户名插入到消息中
-                snprintf(welcomeMessage, sizeof(welcomeMessage), "Welcome guest %s!", unencrypted_username);
-                send(child_sockfd, welcomeMessage, strlen(welcomeMessage), 0);
-                printf("The main server sent guest response to the client.\n");
-            }
-            else if (strcmp(type, "member") == 0 && numItems >= 3)
-            {
-                // 成员逻辑处理
                 printf("The main server has received the authentication for %s using TCP over port %d.\n", unencrypted_username, Main_TCP_PORT);
 
-                // 对于成员，我们有未加密的用户名、加密的用户名和加密的密码
                 if (validateUser(username, password) == 1)
                 {
                     // if login success
                     snprintf(welcomeMessage, sizeof(welcomeMessage), "Welcome member %s!", unencrypted_username);
-
                     send(child_sockfd, welcomeMessage, strlen(welcomeMessage), 0);
                     printf("The main server sent authentication result to the client.\n");
+
+                    isMember = 1;
                 }
                 else if (validateUser(username, password) == 2)
                 {
@@ -334,18 +447,67 @@ int main()
                     char *message = "Failed login: Username does not exist.";
                     send(child_sockfd, message, strlen(message) + 1, 0);
                     printf("The main server sent authentication result to the client.\n");
+
+                    isMember = 0;
                 }
                 else if (validateUser(username, password) == 3)
                 {
                     char *message = "Failed login: Password does not match.";
                     send(child_sockfd, message, strlen(message) + 1, 0);
                     printf("The main server sent authentication result to the client.\n");
+
+                    isMember = 0;
                 }
             }
+            else
+            {
+                printf("The main server received the guest request for %s using TCP over port %d.\n", unencrypted_username, Main_TCP_PORT);
+                snprintf(welcomeMessage, sizeof(welcomeMessage), "Welcome guest %s!", unencrypted_username);
+                send(child_sockfd, welcomeMessage, strlen(welcomeMessage), 0);
+                printf("The main server sent the guest response to the client.\n");
+                isMember = 0;
+            }
 
-            close(child_sockfd); // 处理完客户端请求后关闭连接
-            exit(0);
+            while (1)
+            { /**************  Member Processing   ***************/
+                if (isMember == 1)
+                {
+                    // decide wheather Availability or Reservation request
+                    processClientRequest();
+
+                    if (strcmp(option, "Availability") == 0)
+                    {
+                        dispatchRoomAvailabilityRequest(dest_serverS_size, dest_serverD_size, dest_serverU_size);
+                    }
+                    else
+                    {
+                        dispatchRoomReservationRequest(dest_serverS_size, dest_serverD_size, dest_serverU_size);
+                    }
+                }
+                else
+                {
+                    /*********        guest processing      *******************/
+
+                    processClientRequest();
+                    // Availability
+                    if (strcmp(option, "Availability") == 0)
+                    {
+                        dispatchRoomAvailabilityRequest(dest_serverS_size, dest_serverD_size, dest_serverU_size);
+                    }
+                    // Reservation
+                    else
+                    {
+                        printf("%s cannot make a reservation.\n", unencrypted_username);
+                        char *message = "Permission denied:Guest cannot make a reservation.";
+                        send(child_sockfd, message, strlen(message) + 1, 0);
+                        printf("The main server sent the error message to the client.\n");
+                    }
+                }
+            }
         }
-        close(child_sockfd); // 父进程关闭已接受的连接
+
+        close(child_sockfd); // 处理完客户端请求后关闭连接
+        exit(0);
     }
+    close(child_sockfd); // 父进程关闭已接受的连接
 }

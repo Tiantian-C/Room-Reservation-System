@@ -22,12 +22,16 @@
 /**
  * Defined global variables
  */
-int sockfd_client_TCP;          // Client socket
-struct sockaddr_in main_addr;   // Main server address
+int sockfd_client_TCP;        // Client socket
+struct sockaddr_in main_addr; // Main server address
+struct sockaddr_in localAddr;
+socklen_t addrLength = sizeof(localAddr);
+
 char userdata_buf[MAXDATASIZE]; // Store input to userdata (send to Main)
 // char compute_buf[MAXDATASIZE]; // Store input to compute (send to Main)
-char login_result[MAXDATASIZE];   // login result from Main
-char compute_result[MAXDATASIZE]; // Compute result from Main
+char login_result[MAXDATASIZE]; // login result from Main
+char availability_result[MAXDATASIZE];
+char reservation_result[MAXDATASIZE];
 
 /**
  * Steps (defined functions):
@@ -73,14 +77,14 @@ void init_Main_connection()
 }
 
 /**
- * Step 3: Send connection request to AWS server
+ * Step 3: Send connection request to main server
  */
 void request_Main_connection()
 {
     connect(sockfd_client_TCP, (struct sockaddr *)&main_addr, sizeof(main_addr));
 
     // If connection succeed, display boot up message
-    printf("The client is up and running \n");
+    printf("Client is up and running \n");
 }
 
 void encrypt(char *input)
@@ -88,7 +92,7 @@ void encrypt(char *input)
     for (int i = 0; input[i] != '\0'; i++)
     {
         if (input[i] >= 'a' && input[i] <= 'z')
-        { // Lowercase letters
+        { // Lowercase letter
             input[i] = (input[i] - 'a' + 3) % 26 + 'a';
         }
         else if (input[i] >= 'A' && input[i] <= 'Z')
@@ -121,13 +125,14 @@ int main()
     strcpy(username_copy, username); // 复制username到username_copy
 
     printf("Please enter the password (Press 'Enter' to skip): ");
-    getchar();                                // 捕获之前留下的换行符
-    fgets(password, sizeof(password), stdin); // 使用fgets读取行，以便捕获回车
+    getchar();
+    fgets(password, sizeof(password), stdin);
 
     if (strcmp(password, "\n") == 0)
     {
         // 用户按了回车，没有输入密码，视为访客
-        snprintf(userdata_buf, sizeof(userdata_buf), "guest,%s", username); // 格式化消息
+        isMember = 0;
+        snprintf(userdata_buf, sizeof(userdata_buf), "%s", username); // 格式化消息
     }
     else
     {
@@ -136,7 +141,7 @@ int main()
         password[strcspn(password, "\n")] = 0; // 移除密码字符串末尾的换行符
         encrypt(username);
         encrypt(password);
-        snprintf(userdata_buf, sizeof(userdata_buf), "member,%s,%s,%s", username_copy, username, password); // 格式化消息,store username and password
+        snprintf(userdata_buf, sizeof(userdata_buf), "%s,%s,%s", username_copy, username, password); // 格式化消息,store username and password
     }
 
     // printf("%s", userdata_buf);
@@ -154,8 +159,7 @@ int main()
     }
     else
     {
-        struct sockaddr_in localAddr;
-        socklen_t addrLength = sizeof(localAddr);
+
         if (getsockname(sockfd_client_TCP, (struct sockaddr *)&localAddr, &addrLength) < 0)
         {
             perror("getsockname() failed");
@@ -180,20 +184,116 @@ int main()
 
     printf("%s\n", login_result);
 
-    // 比较接收到的消息
-    // if (isMember)
-    // {
-    //     // Member Logic
-    //     if (strcmp(login_result, "Success") == 0)
-    //     {
-    //         printf("Welcome member %s!\n", username_copy);
-    //     }
-    //     else
-    //     {
-    //         printf("%s\n", login_result); // 打印接收到的消息
-    //     }
-    // }else{
-    //     // Guest Logic
-    //     print
-    // }
+    while (1)
+    {
+        printf("Please enter the room code:");
+        char roomcode[15];
+        scanf("%s", roomcode);
+
+        char option[20];
+        printf("Would you like to search for the availability or make a reservation?(Enter 'Availability' to search for availability or Enter 'Reservation' to make a reservation):");
+        scanf("%s", option);
+
+        // 组装数据
+        char data_to_send[40];
+        sprintf(data_to_send, "%s|%s", roomcode, option); // 使用 | 作为分隔符
+
+        // 发送数据(Availability or Reservation )
+        if (send(sockfd_client_TCP, data_to_send, strlen(data_to_send), 0) == FAIL)
+        {
+            perror("[ERROR] client: fail to send data");
+            close(sockfd_client_TCP);
+            exit(1);
+        }
+        // printf("%s %d\n",option,strcmp(option, "Reservation"));
+
+        if (isMember)
+        {
+            if (strcmp(option, "Availability") == 0)
+            {
+                printf("%s sent an availability request to the main server.\n", username_copy);
+
+                if (recv(sockfd_client_TCP, availability_result, sizeof(availability_result), 0) == FAIL)
+                {
+                    perror("[ERROR] client: fail to receive availability result from main server");
+                    close(sockfd_client_TCP);
+                    exit(1);
+                }
+                if (getsockname(sockfd_client_TCP, (struct sockaddr *)&localAddr, &addrLength) < 0)
+                {
+                    perror("getsockname() failed");
+                    exit(EXIT_FAILURE);
+                }
+
+                printf("The client received the response from the main server using TCP over port %d.\n", ntohs(localAddr.sin_port));
+                printf("%s\n", availability_result);
+
+                memset(availability_result, 0, sizeof(availability_result));
+            }
+            else if (strcmp(option, "Reservation") == 0)
+            {
+                printf("%s sent an reservation request to the main server.\n", username_copy);
+                if (recv(sockfd_client_TCP, reservation_result, sizeof(reservation_result), 0) == FAIL)
+                {
+                    perror("[ERROR] client: fail to receive reservation result from main server");
+                    close(sockfd_client_TCP);
+                    exit(1);
+                }
+                if (getsockname(sockfd_client_TCP, (struct sockaddr *)&localAddr, &addrLength) < 0)
+                {
+                    perror("getsockname() failed");
+                    exit(EXIT_FAILURE);
+                }
+
+                printf("The client received the response from the main server using TCP over port %d.\n", ntohs(localAddr.sin_port));
+                printf("%s\n", reservation_result);
+
+                memset(reservation_result, 0, sizeof(reservation_result));
+            }
+        } // Guest Request
+        else
+        {
+            if (strcmp(option, "Availability") == 0)
+            {
+                printf("%s sent an availability request to the main server.\n", username_copy);
+
+                if (recv(sockfd_client_TCP, availability_result, sizeof(availability_result), 0) == FAIL)
+                {
+                    perror("[ERROR] client: fail to receive availability result from main server");
+                    close(sockfd_client_TCP);
+                    exit(1);
+                }
+                if (getsockname(sockfd_client_TCP, (struct sockaddr *)&localAddr, &addrLength) < 0)
+                {
+                    perror("getsockname() failed");
+                    exit(EXIT_FAILURE);
+                }
+
+                printf("The client received the response from the main server using TCP over port %d.\n", ntohs(localAddr.sin_port));
+                printf("%s\n", availability_result);
+
+                memset(availability_result, 0, sizeof(availability_result));
+            }
+            else if (strcmp(option, "Reservation") == 0)
+            {
+                printf("%s sent an reservation request to the main server.\n", username_copy);
+                if (recv(sockfd_client_TCP, reservation_result, sizeof(reservation_result), 0) == FAIL)
+                {
+                    perror("[ERROR] client: fail to receive reservation result from main server");
+                    close(sockfd_client_TCP);
+                    exit(1);
+                }
+                if (getsockname(sockfd_client_TCP, (struct sockaddr *)&localAddr, &addrLength) < 0)
+                {
+                    perror("getsockname() failed");
+                    exit(EXIT_FAILURE);
+                }
+                printf("%s\n", reservation_result);
+
+                memset(reservation_result, 0, sizeof(reservation_result));
+            }
+        }
+        printf("\n");
+        printf("-----Start a new request-----\n");
+    }
 }
