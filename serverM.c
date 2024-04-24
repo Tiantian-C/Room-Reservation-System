@@ -236,7 +236,7 @@ void handleRoomAvailabilityRequest(int child_sockfd, struct sockaddr_in dest_ser
     printf("The main server received the response from Server %s using UDP over port %d.\n", server, Main_UDP_PORT);
 
     send(child_sockfd, room_availability_buf, sizeof(room_availability_buf), 0);
-    printf("The main server sent availbility infomation to the client.\n");
+    printf("The main server sent the availbility infomation to the client.\n");
 }
 
 void handleRoomReservationRequest(int child_sockfd, struct sockaddr_in dest_server_addr, socklen_t dest_server_size, char *server, char *unencrypted_username)
@@ -256,7 +256,7 @@ void handleRoomReservationRequest(int child_sockfd, struct sockaddr_in dest_serv
     printf("The main server received the response and updated room status from Server %s using UDP over port %d.\n", server, Main_UDP_PORT);
 
     send(child_sockfd, room_reservation_buf, sizeof(room_reservation_buf), 0);
-    printf("The main server sent reservation result to the client.\n");
+    printf("The main server sent the reservation result to the client.\n");
 }
 
 void processClientRequest()
@@ -434,7 +434,7 @@ int main()
             if (numItems >= 3)
             {
 
-                printf("The main server has received the authentication for %s using TCP over port %d.\n", unencrypted_username, Main_TCP_PORT);
+                printf("The main server received the authentication for %s using TCP over port %d.\n", unencrypted_username, Main_TCP_PORT);
 
                 if (validateUser(username, password) == 1)
                 {
@@ -469,6 +469,7 @@ int main()
             else
             {
                 printf("The main server received the guest request for %s using TCP over port %d.\n", unencrypted_username, Main_TCP_PORT);
+                printf("The main server accepts %s as a guest.\n", unencrypted_username);
                 snprintf(welcomeMessage, sizeof(welcomeMessage), "Welcome guest %s!", unencrypted_username);
                 send(child_sockfd, welcomeMessage, strlen(welcomeMessage), 0);
                 printf("The main server sent the guest response to the client.\n");
@@ -529,6 +530,7 @@ int main()
                 else
                 {
                     printf("The main server received the guest request for %s using TCP over port %d.\n", unencrypted_username, Main_TCP_PORT);
+                    printf("The main server accepts %s as a guest.\n", unencrypted_username);
                     snprintf(welcomeMessage, sizeof(welcomeMessage), "Welcome guest %s!", unencrypted_username);
                     send(child_sockfd, welcomeMessage, strlen(welcomeMessage), 0);
                     printf("The main server sent the guest response to the client.\n");
@@ -566,6 +568,8 @@ int main()
                     // Reservation
                     else
                     {
+
+                        printf("The main server has received the reservation request on Room %s from %s using TCP over %d\n", roomcode, unencrypted_username, Main_TCP_PORT);
                         printf("%s cannot make a reservation.\n", unencrypted_username);
                         char *message = "Permission denied:Guest cannot make a reservation.";
                         send(child_sockfd, message, strlen(message) + 1, 0);
