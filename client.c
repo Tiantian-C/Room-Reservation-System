@@ -118,71 +118,85 @@ int main()
     char password[51];      // store password
     char username_copy[51]; // 用户名副本的缓冲区
     int isMember = 0;
-
-    printf("Please enter the username: ");
-    scanf("%50s", username); // 读取用户输入的用户名，使用50来限制输入长度，防止溢出
-
-    strcpy(username_copy, username); // 复制username到username_copy
-
-    printf("Please enter the password (Press 'Enter' to skip): ");
-    getchar();
-    fgets(password, sizeof(password), stdin);
-
-    if (strcmp(password, "\n") == 0)
+    while (1)
     {
-        // 用户按了回车，没有输入密码，视为访客
-        isMember = 0;
-        snprintf(userdata_buf, sizeof(userdata_buf), "%s", username); // 格式化消息
-    }
-    else
-    {
-        // 用户输入了密码，视为成员
-        isMember = 1;                          // 标记为member
-        password[strcspn(password, "\n")] = 0; // 移除密码字符串末尾的换行符
-        encrypt(username);
-        encrypt(password);
-        snprintf(userdata_buf, sizeof(userdata_buf), "%s,%s,%s", username_copy, username, password); // 格式化消息,store username and password
-    }
+        memset(username, 0, sizeof(username));
+        memset(password, 0, sizeof(password));
+        memset(username_copy, 0, sizeof(username_copy));
 
-    // printf("%s", userdata_buf);
+        printf("Please enter the username: ");
+        scanf("%50s", username); // 读取用户输入的用户名，使用50来限制输入长度，防止溢出
 
-    /******    Step 4:  Send user data to Main server(member/guest)    *******/
-    if (send(sockfd_client_TCP, userdata_buf, sizeof(userdata_buf), 0) == FAIL)
-    {
-        perror("[ERROR] client: fail to send input data");
-        close(sockfd_client_TCP);
-        exit(1);
-    }
-    if (isMember)
-    {
-        printf("%s sent an authentication request to the main server.\n", username_copy);
-    }
-    else
-    {
+        strcpy(username_copy, username); // 复制username到username_copy
 
-        if (getsockname(sockfd_client_TCP, (struct sockaddr *)&localAddr, &addrLength) < 0)
+        // printf("%s",username_copy);
+
+        printf("Please enter the password (Press 'Enter' to skip): ");
+        getchar();
+        fgets(password, sizeof(password), stdin);
+
+        if (strcmp(password, "\n") == 0)
         {
-            perror("getsockname() failed");
-            exit(EXIT_FAILURE);
+            // 用户按了回车，没有输入密码，视为访客
+            isMember = 0;
+            snprintf(userdata_buf, sizeof(userdata_buf), "%s", username); // 格式化消息
+        }
+        else
+        {
+            // 用户输入了密码，视为成员
+            isMember = 1;                          // 标记为member
+            password[strcspn(password, "\n")] = 0; // 移除密码字符串末尾的换行符
+            encrypt(username);
+            encrypt(password);
+            snprintf(userdata_buf, sizeof(userdata_buf), "%s,%s,%s", username_copy, username, password); // 格式化消息,store username and password
         }
 
-        // 将端口号从网络字节顺序转换为主机字节顺序，然后打印
-        printf("%s sent a guest request to the main server using TCP over port %d.\n", username_copy, ntohs(localAddr.sin_port));
+        // printf("%s", userdata_buf);
+
+        /******    Step 4:  Send user data to Main server(member/guest)    *******/
+        if (send(sockfd_client_TCP, userdata_buf, sizeof(userdata_buf), 0) == FAIL)
+        {
+            perror("[ERROR] client: fail to send input data");
+            close(sockfd_client_TCP);
+            exit(1);
+        }
+        if (isMember)
+        {
+            printf("%s sent an authentication request to the main server.\n", username_copy);
+        }
+        else
+        {
+
+            if (getsockname(sockfd_client_TCP, (struct sockaddr *)&localAddr, &addrLength) < 0)
+            {
+                perror("getsockname() failed");
+                exit(EXIT_FAILURE);
+            }
+
+            // 将端口号从网络字节顺序转换为主机字节顺序，然后打印
+            printf("%s sent a guest request to the main server using TCP over port %d.\n", username_copy, ntohs(localAddr.sin_port));
+        }
+
+        /******    Step 5:  Get login result back from main Server    *******/
+        int bytes_received = recv(sockfd_client_TCP, login_result, sizeof(login_result), 0);
+        if (bytes_received == FAIL)
+        {
+            perror("[ERROR] client: fail to receive login result from main server");
+            close(sockfd_client_TCP);
+            exit(1);
+        }
+
+        // 确保接收到的数据是以空字符结尾的
+        login_result[bytes_received] = '\0';
+
+        printf("%s\n", login_result);
+
+        if (!strstr(login_result, "Failed login"))
+        {
+            // 登录成功
+            break;
+        }
     }
-
-    /******    Step 5:  Get login result back from main Server    *******/
-    int bytes_received = recv(sockfd_client_TCP, login_result, sizeof(login_result), 0);
-    if (bytes_received == FAIL)
-    {
-        perror("[ERROR] client: fail to receive login result from main server");
-        close(sockfd_client_TCP);
-        exit(1);
-    }
-
-    // 确保接收到的数据是以空字符结尾的
-    login_result[bytes_received] = '\0';
-
-    printf("%s\n", login_result);
 
     while (1)
     {

@@ -86,7 +86,7 @@ void bind_socket()
         exit(1);
     }
 
-    printf("The Server U is up and running using UDP on port <%d>. \n", ServerU_UDP_PORT);
+    printf("The Server U is up and running using UDP on port %d. \n", ServerU_UDP_PORT);
 }
 
 void loadRoomData(const char *filename)
@@ -137,7 +137,6 @@ int main()
         exit(1);
     }
     printf("The Server U has sent the room status to the main server.\n");
-
 
     /*  RECEIVE Availability OR Reservation request from main server  */
 

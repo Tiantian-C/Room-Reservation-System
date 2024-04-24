@@ -44,6 +44,7 @@ int sockfd_TCP;   // TCP parent socket
 int child_sockfd; // TCP child socket
 
 int isMember = 0;
+int loginFail = 0;
 
 struct sockaddr_in main_UDP_addr, main_member_addr, main_guest_addr;
 struct sockaddr_in dest_serverS_addr, dest_serverD_addr, dest_serverU_addr, dest_member_addr; // When Main server works as a client
@@ -415,6 +416,7 @@ int main()
             close(sockfd_TCP); // child process don't need lisener
 
             /************     receive login info from the client       ***********/
+            memset(login_buf, 0, sizeof(login_buf));
             int recv_client = recv(child_sockfd, login_buf, MAXDATASIZE, 0);
             if (recv_client == FAIL)
             {
@@ -423,6 +425,8 @@ int main()
             }
 
             int numItems = sscanf(login_buf, "%[^,],%[^,],%s", unencrypted_username, username, password);
+            // printf("%s\n", login_buf);
+            // printf("%s\n", unencrypted_username);
 
             char welcomeMessage[1024];
 
@@ -440,6 +444,7 @@ int main()
                     printf("The main server sent authentication result to the client.\n");
 
                     isMember = 1;
+                    loginFail = 0;
                 }
                 else if (validateUser(username, password) == 2)
                 {
@@ -449,6 +454,7 @@ int main()
                     printf("The main server sent authentication result to the client.\n");
 
                     isMember = 0;
+                    loginFail = 1;
                 }
                 else if (validateUser(username, password) == 3)
                 {
@@ -457,6 +463,7 @@ int main()
                     printf("The main server sent authentication result to the client.\n");
 
                     isMember = 0;
+                    loginFail = 1;
                 }
             }
             else
@@ -466,6 +473,68 @@ int main()
                 send(child_sockfd, welcomeMessage, strlen(welcomeMessage), 0);
                 printf("The main server sent the guest response to the client.\n");
                 isMember = 0;
+                loginFail = 0;
+            }
+
+            while (loginFail)
+            {
+                /************     receive login info from the client       ***********/
+                int recv_client = recv(child_sockfd, login_buf, MAXDATASIZE, 0);
+                if (recv_client == FAIL)
+                {
+                    perror("[ERROR] Main server: fail to receive login data from client.");
+                    exit(1);
+                }
+
+                int numItems = sscanf(login_buf, "%[^,],%[^,],%s", unencrypted_username, username, password);
+
+                char welcomeMessage[1024];
+
+                /**********   Validate User  Member or Guest**************/
+                if (numItems >= 3)
+                {
+
+                    printf("The main server has received the authentication for %s using TCP over port %d.\n", unencrypted_username, Main_TCP_PORT);
+
+                    if (validateUser(username, password) == 1)
+                    {
+                        // if login success
+                        snprintf(welcomeMessage, sizeof(welcomeMessage), "Welcome member %s!", unencrypted_username);
+                        send(child_sockfd, welcomeMessage, strlen(welcomeMessage), 0);
+                        printf("The main server sent authentication result to the client.\n");
+
+                        isMember = 1;
+                        loginFail = 0;
+                    }
+                    else if (validateUser(username, password) == 2)
+                    {
+                        // Username does not exist
+                        char *message = "Failed login: Username does not exist.";
+                        send(child_sockfd, message, strlen(message) + 1, 0);
+                        printf("The main server sent authentication result to the client.\n");
+
+                        isMember = 0;
+                        loginFail = 1;
+                    }
+                    else if (validateUser(username, password) == 3)
+                    {
+                        char *message = "Failed login: Password does not match.";
+                        send(child_sockfd, message, strlen(message) + 1, 0);
+                        printf("The main server sent authentication result to the client.\n");
+
+                        isMember = 0;
+                        loginFail = 1;
+                    }
+                }
+                else
+                {
+                    printf("The main server received the guest request for %s using TCP over port %d.\n", unencrypted_username, Main_TCP_PORT);
+                    snprintf(welcomeMessage, sizeof(welcomeMessage), "Welcome guest %s!", unencrypted_username);
+                    send(child_sockfd, welcomeMessage, strlen(welcomeMessage), 0);
+                    printf("The main server sent the guest response to the client.\n");
+                    isMember = 0;
+                    loginFail = 0;
+                }
             }
 
             while (1)
@@ -504,10 +573,9 @@ int main()
                     }
                 }
             }
+            close(child_sockfd); // 处理完客户端请求后关闭连接
+            exit(0);
         }
-
-        close(child_sockfd); // 处理完客户端请求后关闭连接
-        exit(0);
     }
     close(child_sockfd); // 父进程关闭已接受的连接
 }

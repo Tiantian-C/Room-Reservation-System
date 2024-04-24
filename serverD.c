@@ -86,7 +86,7 @@ void bind_socket()
         exit(1);
     }
 
-    printf("The Server D is up and running using UDP on port <%d>. \n", ServerD_UDP_PORT);
+    printf("The Server D is up and running using UDP on port %d. \n", ServerD_UDP_PORT);
 }
 
 void loadRoomData(const char *filename)
