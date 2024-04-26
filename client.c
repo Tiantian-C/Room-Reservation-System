@@ -200,9 +200,25 @@ int main()
 
     while (1)
     {
-        printf("Please enter the room code:");
+
         char roomcode[15];
-        scanf("%s", roomcode);
+        // printf("Please enter the room code:");
+        //scanf("%s", roomcode);
+
+        while (1)
+        { // 无限循环，直到输入正确为止
+            memset(roomcode, 0, sizeof(roomcode));
+            printf("Please enter the room code: ");
+            scanf("%s", roomcode);
+
+            // 检查roomcode的第一个字符是否是'S', 'D', 或 'U'
+            if (roomcode[0] == 'S' || roomcode[0] == 'D' || roomcode[0] == 'U')
+            {
+                break; // 如果条件满足，跳出循环
+            }
+
+            printf("Invalid room code. The room code must start with 'S', 'D', or 'U'.\n");
+        }
 
         char option[20];
         // printf("Would you like to search for the availability or make a reservation?(Enter 'Availability' to search for availability or Enter 'Reservation' to make a reservation):");

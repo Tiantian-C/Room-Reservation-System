@@ -332,6 +332,7 @@ void dispatchRoomAvailabilityRequest(socklen_t dest_serverS_size, socklen_t dest
     default:
         // 错误处理
         fprintf(stderr, "Error: Unrecognized roomcode starting letter.\n");
+        
         break;
     }
 }
