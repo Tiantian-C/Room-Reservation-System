@@ -1,13 +1,44 @@
 (a)Mengtian Chen
-(b)5264766074
+(b)
 (c)
 1. Built TCP and UDP connection between clients and servers. 
 2. Well-defined data format and accomplished the TCP and UDP message exchange.
 (d)
-serverM.c:  1 UDP socket and 1 TCP socket is created in this file. The TCP socket is responsible for connecting with client, get the input and send the result back to client. The UDP socket is 
-		responsible for connecting with backend-servers to get reply.
-client.c:	  1 TCP socket is created in this file. The client get username and password from user's inputs and send it to main server, then wait for authentication from main server. Then get roomcode and query from user's inputs and send it to main server, then wait for reply from main server.
-serverS.c:	1 UDP socket is created in this file. The backend-serverS get request of single room from main server and send reply to main server. 
-serverD.c:  1 UDP socket is created in this file. The backend-serverD get request of double room from main server and send reply to main server. 
-serverU.c:	1 UDP socket is created in this file. The backend-serverU get request of suite from main server and send reply to main server. 
+serverM.c:  
+1 UDP socket and 1 TCP socket is created in this file. The TCP socket is responsible for connecting with client, get the input and send the result back to client. The UDP socket is responsible for connecting with backend-servers to get reply.
+client.c:	  
+1 TCP socket is created in this file. The client get username and password from user's inputs and send it to main server, then wait for authentication from main server. Then get roomcode and query from user's inputs and send it to main server, then wait for reply from main server.
+serverS.c:	
+1 UDP socket is created in this file. The backend-serverS get request of single room from main server and send reply to main server. 
+serverD.c:  
+1 UDP socket is created in this file. The backend-serverD get request of double room from main server and send reply to main server. 
+serverU.c:	
+1 UDP socket is created in this file. The backend-serverU get request of suite from main server and send reply to main server. 
 (e)
+1.client.c
+- Store userdata(username|password) and send to main server:userdata_buf[MAXDATASIZE]
+- login result from main: login_result[MAXDATASIZE]; 
+- Store query information(roomcode|option) and send to main server:data_to_send[MAXDATASIZE]
+2.serverM.c
+- Initail single room status returned from server S:S_room_status[MAXDATASIZE]; 
+- Initail double room status returned from server D:D_room_status[MAXDATASIZE]; 
+- Initail suite room status returned from server U:U_room_status[MAXDATASIZE]; 
+- login data from client:login_buf[MAXDATASIZE];
+- Store query information(roomcode|option) and send to backend server S/D/U:check_room_buf[MAXDATASIZE];
+- room availability information returned from server S/D/U: room_availability_buf[MAXDATASIZE];
+- room reservation information returned from server S/D/U: room_reservation_buf[MAXDATASIZE]; 
+3. serverS.c
+- Initial room status of Server S: message[MAXDATASIZE];
+- Availability query result(send to main server): char *availability_message;
+- Reservation query result(send to main server):reservation_buf[MAXDATASIZE],reservation_message and reservation_status are concatenated by a comma
+4.serverD.c
+Similar to serverS
+5.serverU.c
+Similar to serverS
+(f)
+Idiosyncrasy Based on the test results run on given environment (Ubuntu 22.04), there was no idiosyncrasy found
+(g)Beej's Code: http://www.beej.us/guide/bgnet/
+	-Create sockets (TCP / UDP);
+        -Bind a socket;
+        -Send & receive;
+
