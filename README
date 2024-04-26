@@ -1,0 +1,13 @@
+(a)Mengtian Chen
+(b)5264766074
+(c)
+1. Built TCP and UDP connection between clients and servers. 
+2. Well-defined data format and accomplished the TCP and UDP message exchange.
+(d)
+serverM.c:  1 UDP socket and 1 TCP socket is created in this file. The TCP socket is responsible for connecting with client, get the input and send the result back to client. The UDP socket is 
+		responsible for connecting with backend-servers to get reply.
+client.c:	  1 TCP socket is created in this file. The client get username and password from user's inputs and send it to main server, then wait for authentication from main server. Then get roomcode and query from user's inputs and send it to main server, then wait for reply from main server.
+serverS.c:	1 UDP socket is created in this file. The backend-serverS get request of single room from main server and send reply to main server. 
+serverD.c:  1 UDP socket is created in this file. The backend-serverD get request of double room from main server and send reply to main server. 
+serverU.c:	1 UDP socket is created in this file. The backend-serverU get request of suite from main server and send reply to main server. 
+(e)
