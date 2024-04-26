@@ -566,7 +566,7 @@ int main()
                     {
                         dispatchRoomReservationRequest(dest_serverS_size, dest_serverD_size, dest_serverU_size);
                     }
-                    
+                   
                 }
                 else
                 {
@@ -579,7 +579,7 @@ int main()
                         dispatchRoomAvailabilityRequest(dest_serverS_size, dest_serverD_size, dest_serverU_size);
                     }
                     // Reservation
-                    else
+                    else if(strcmp(option, "Reservation") == 0)
                     {
 
                         printf("The main server has received the reservation request on Room %s from %s using TCP over %d\n", roomcode, unencrypted_username, Main_TCP_PORT);
@@ -588,6 +588,7 @@ int main()
                         send(child_sockfd, message, strlen(message) + 1, 0);
                         printf("The main server sent the error message to the client.\n");
                     }
+                    
                 }
             }
             close(child_sockfd); // 处理完客户端请求后关闭连接

@@ -205,8 +205,22 @@ int main()
         scanf("%s", roomcode);
 
         char option[20];
-        printf("Would you like to search for the availability or make a reservation?(Enter 'Availability' to search for availability or Enter 'Reservation' to make a reservation):");
-        scanf("%s", option);
+        // printf("Would you like to search for the availability or make a reservation?(Enter 'Availability' to search for availability or Enter 'Reservation' to make a reservation):");
+        // scanf("%s", option);
+
+        while (1)
+        {                                      // 无限循环，直到输入正确为止
+            memset(option, 0, sizeof(option)); // 清空option数组
+            printf("Would you like to search for the availability or make a reservation?(Enter 'Availability' to search for availability or Enter 'Reservation' to make a reservation):");
+            scanf("%s", option);
+
+            // 检查输入是否正确
+            if (strcmp(option, "Availability") == 0 || strcmp(option, "Reservation") == 0)
+            {
+                break; // 如果输入正确，跳出循环
+            }
+            printf("Invalid input. Please enter 'Availability' or 'Reservation' only.\n");
+        }
 
         // 组装数据
         char data_to_send[40];
