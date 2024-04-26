@@ -253,9 +253,21 @@ void handleRoomReservationRequest(int child_sockfd, struct sockaddr_in dest_serv
         perror("[ERROR] Main: fail to receive response from Server S.");
         exit(1);
     }
-    printf("The main server received the response and updated room status from Server %s using UDP over port %d.\n", server, Main_UDP_PORT);
 
-    send(child_sockfd, room_reservation_buf, sizeof(room_reservation_buf), 0);
+    char reservation_message[MAXDATASIZE];
+    char reservation_status[MAXDATASIZE];
+    sscanf(room_reservation_buf, "%[^,],%s", reservation_message, reservation_status);
+    // if count of room changed
+    if (strcmp(reservation_status, "success") == 0)
+    {
+        printf("The main server received the response and the updated room status from Server %s using UDP over port %d.\n", server, Main_UDP_PORT);
+        printf("The room status of Room %s has been updated.\n", roomcode);
+    }
+    else
+    {
+        printf("The main server received the response from Server %s using UDP over port %d.\n", server, Main_UDP_PORT);
+    }
+    send(child_sockfd, reservation_message, sizeof(reservation_message), 0);
     printf("The main server sent the reservation result to the client.\n");
 }
 
@@ -327,7 +339,7 @@ void dispatchRoomAvailabilityRequest(socklen_t dest_serverS_size, socklen_t dest
 void dispatchRoomReservationRequest(socklen_t dest_serverS_size, socklen_t dest_serverD_size, socklen_t dest_serverU_size)
 {
     // Reservation Request
-    printf("The main server has received the reservation request on Room %s from %s using TCP over %d\n", roomcode, unencrypted_username, Main_TCP_PORT);
+    printf("The main server has received the reservation request on Room %s from %s using TCP over port %d.\n", roomcode, unencrypted_username, Main_TCP_PORT);
     switch (roomcode[0])
     {
     case 'S':
@@ -441,7 +453,7 @@ int main()
                     // if login success
                     snprintf(welcomeMessage, sizeof(welcomeMessage), "Welcome member %s!", unencrypted_username);
                     send(child_sockfd, welcomeMessage, strlen(welcomeMessage), 0);
-                    printf("The main server sent authentication result to the client.\n");
+                    printf("The main server sent the authentication result to the client.\n");
 
                     isMember = 1;
                     loginFail = 0;
@@ -451,7 +463,7 @@ int main()
                     // Username does not exist
                     char *message = "Failed login: Username does not exist.";
                     send(child_sockfd, message, strlen(message) + 1, 0);
-                    printf("The main server sent authentication result to the client.\n");
+                    printf("The main server sent the authentication result to the client.\n");
 
                     isMember = 0;
                     loginFail = 1;
@@ -460,7 +472,7 @@ int main()
                 {
                     char *message = "Failed login: Password does not match.";
                     send(child_sockfd, message, strlen(message) + 1, 0);
-                    printf("The main server sent authentication result to the client.\n");
+                    printf("The main server sent the authentication result to the client.\n");
 
                     isMember = 0;
                     loginFail = 1;
@@ -502,7 +514,7 @@ int main()
                         // if login success
                         snprintf(welcomeMessage, sizeof(welcomeMessage), "Welcome member %s!", unencrypted_username);
                         send(child_sockfd, welcomeMessage, strlen(welcomeMessage), 0);
-                        printf("The main server sent authentication result to the client.\n");
+                        printf("The main server sent the authentication result to the client.\n");
 
                         isMember = 1;
                         loginFail = 0;
@@ -512,7 +524,7 @@ int main()
                         // Username does not exist
                         char *message = "Failed login: Username does not exist.";
                         send(child_sockfd, message, strlen(message) + 1, 0);
-                        printf("The main server sent authentication result to the client.\n");
+                        printf("The main server sent the authentication result to the client.\n");
 
                         isMember = 0;
                         loginFail = 1;
@@ -521,7 +533,7 @@ int main()
                     {
                         char *message = "Failed login: Password does not match.";
                         send(child_sockfd, message, strlen(message) + 1, 0);
-                        printf("The main server sent authentication result to the client.\n");
+                        printf("The main server sent the authentication result to the client.\n");
 
                         isMember = 0;
                         loginFail = 1;
@@ -550,10 +562,11 @@ int main()
                     {
                         dispatchRoomAvailabilityRequest(dest_serverS_size, dest_serverD_size, dest_serverU_size);
                     }
-                    else
+                    else if(strcmp(option, "Reservation") == 0)
                     {
                         dispatchRoomReservationRequest(dest_serverS_size, dest_serverD_size, dest_serverU_size);
                     }
+                    
                 }
                 else
                 {

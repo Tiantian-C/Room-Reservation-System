@@ -246,7 +246,7 @@ int main()
             }
             else if (strcmp(option, "Reservation") == 0)
             {
-                printf("%s sent an reservation request to the main server.\n", username_copy);
+                printf("%s sent a reservation request to the main server.\n", username_copy);
                 if (recv(sockfd_client_TCP, reservation_result, sizeof(reservation_result), 0) == FAIL)
                 {
                     perror("[ERROR] client: fail to receive reservation result from main server");
@@ -290,7 +290,7 @@ int main()
             }
             else if (strcmp(option, "Reservation") == 0)
             {
-                printf("%s sent an reservation request to the main server.\n", username_copy);
+                printf("%s sent a reservation request to the main server.\n", username_copy);
                 if (recv(sockfd_client_TCP, reservation_result, sizeof(reservation_result), 0) == FAIL)
                 {
                     perror("[ERROR] client: fail to receive reservation result from main server");

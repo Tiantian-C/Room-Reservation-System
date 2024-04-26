@@ -33,6 +33,9 @@ char recv_buf[MAXDATASIZE];
 char roomcode[MAX_ROOMCODE_SIZE];
 char option[MAX_OPTION_SIZE];
 
+char *reservation_status;
+char reservation_buf[MAXDATASIZE];
+
 // /**
 //  * Defined functions
 //  */
@@ -134,7 +137,6 @@ int main()
         strcat(message, roomStatus);
     }
 
-    
     if (sendto(sockfd_serverD_UDP, message, sizeof(message) + 1, 0, (struct sockaddr *)&main_addr, main_addr_size) < 0)
     {
         perror("[ERROR] Server D: fail to send write result to Main server");
@@ -142,124 +144,130 @@ int main()
     }
 
     printf("The Server D has sent the room status to the main server.\n");
-    
-    
-     /*  RECEIVE Availability OR Reservation request from main server  */
 
-    if (recvfrom(sockfd_serverD_UDP, recv_buf, sizeof(recv_buf), 0, (struct sockaddr *)&main_addr,
-                 &main_addr_size) == FAIL)
+    while (1)
     {
-        perror("[ERROR] Server D: fail to receive data from main server");
-        exit(1);
-    }
+        /*  RECEIVE Availability OR Reservation request from main server  */
 
-
-    recv_buf[MAXDATASIZE - 1] = '\0';
-
-    // get roomcode
-    char *token = strtok(recv_buf, "|");
-    if (token != NULL)
-    {
-        strncpy(roomcode, token, MAX_ROOMCODE_SIZE - 1);
-        roomcode[MAX_ROOMCODE_SIZE - 1] = '\0'; // 确保字符串结束
-    }
-
-    // get option
-    token = strtok(NULL, "|");
-    if (token != NULL)
-    {
-        strncpy(option, token, MAX_OPTION_SIZE - 1);
-        option[MAX_OPTION_SIZE - 1] = '\0'; // 确保字符串结束
-    }
-
-    if (strcmp(option, "Availability") == 0)
-    {
-        // Availability Request
-        printf("The server D received an availability request from the main server.\n");
-        int roomFound = 0; // Flag to check if the room is found
-
-        for (int i = 0; i < roomCount; i++)
+        if (recvfrom(sockfd_serverD_UDP, recv_buf, sizeof(recv_buf), 0, (struct sockaddr *)&main_addr,
+                     &main_addr_size) == FAIL)
         {
-            if (strcmp(roomData[i].roomCode, roomcode) == 0) // Corrected condition
+            perror("[ERROR] Server D: fail to receive data from main server");
+            exit(1);
+        }
+
+        recv_buf[MAXDATASIZE - 1] = '\0';
+
+        // get roomcode
+        char *token = strtok(recv_buf, "|");
+        if (token != NULL)
+        {
+            strncpy(roomcode, token, MAX_ROOMCODE_SIZE - 1);
+            roomcode[MAX_ROOMCODE_SIZE - 1] = '\0'; // 确保字符串结束
+        }
+
+        // get option
+        token = strtok(NULL, "|");
+        if (token != NULL)
+        {
+            strncpy(option, token, MAX_OPTION_SIZE - 1);
+            option[MAX_OPTION_SIZE - 1] = '\0'; // 确保字符串结束
+        }
+
+        if (strcmp(option, "Availability") == 0)
+        {
+            // Availability Request
+            printf("The Server D received an availability request from the main server.\n");
+            int roomFound = 0; // Flag to check if the room is found
+
+            for (int i = 0; i < roomCount; i++)
             {
-                roomFound = 1; // Mark as found
-                if (roomData[i].available > 0)
+                if (strcmp(roomData[i].roomCode, roomcode) == 0) // Corrected condition
                 {
-                    printf("Room %s is available.\n", roomcode);
-                    char *availability_message = "The requested room is available.";
-                    if (sendto(sockfd_serverD_UDP, availability_message, strlen(availability_message) + 1, 0, (struct sockaddr *)&main_addr, main_addr_size) < 0)
+                    roomFound = 1; // Mark as found
+                    if (roomData[i].available > 0)
                     {
-                        perror("[ERROR] Server D: fail to send availability result to Main server");
-                        exit(1);
+                        printf("Room %s is available.\n", roomcode);
+                        char *availability_message = "The requested room is available.";
+                        if (sendto(sockfd_serverD_UDP, availability_message, strlen(availability_message) + 1, 0, (struct sockaddr *)&main_addr, main_addr_size) < 0)
+                        {
+                            perror("[ERROR] Server D: fail to send availability result to Main server");
+                            exit(1);
+                        }
                     }
-                }
-                else
-                {
-                    printf("Room %s is not available.\n", roomcode);
-                    char *availability_message = "The requested room is not available.";
-                    if (sendto(sockfd_serverD_UDP, availability_message, strlen(availability_message) + 1, 0, (struct sockaddr *)&main_addr, main_addr_size) < 0)
+                    else
                     {
-                        perror("[ERROR] Server D: fail to send availability result to Main server");
-                        exit(1);
+                        printf("Room %s is not available.\n", roomcode);
+                        char *availability_message = "The requested room is not available.";
+                        if (sendto(sockfd_serverD_UDP, availability_message, strlen(availability_message) + 1, 0, (struct sockaddr *)&main_addr, main_addr_size) < 0)
+                        {
+                            perror("[ERROR] Server D: fail to send availability result to Main server");
+                            exit(1);
+                        }
                     }
+                    break; // Exit the loop after handling the found room
                 }
-                break; // Exit the loop after handling the found room
             }
-        }
 
-        if (!roomFound) // If no room was found
-        {
-            printf("Not able to find the room layout.\n");
-            char *message = "Not able to find the room layout.";
-            sendto(sockfd_serverD_UDP, message, strlen(message) + 1, 0, (struct sockaddr *)&main_addr, main_addr_size);
-        }
-        printf("The server D finished sending the response to the main server.\n");
-    }
-    else
-    {
-        // Reservation Request
-        printf("The server D received a reservation request from the main server.\n");
-        int roomFound = 0; // Flag to check if the room is found
-
-        for (int i = 0; i < roomCount; i++)
-        {
-            if (strcmp(roomData[i].roomCode, roomcode) == 0) // Corrected condition
+            if (!roomFound) // If no room was found
             {
-                roomFound = 1; // Mark as found
-                if (roomData[i].available > 0)
-                {
-                    roomData[i].available--;
-                    printf("Successful reservation.The count of the Room %s is now %d.\n", roomcode, roomData[i].available);
-                    char reservation_message[200];
-                    sprintf(reservation_message, "Congratulations! The reservation for Room %s has been made.\n", roomcode);
-                    // char *reservation_message = "Congratulation!The reservation for Room has been made.\n";
-                    if (sendto(sockfd_serverD_UDP, reservation_message, strlen(reservation_message) + 1, 0, (struct sockaddr *)&main_addr, main_addr_size) < 0)
-                    {
-                        perror("[ERROR] Server D: fail to send availability result to Main server");
-                        exit(1);
-                    }
-                    printf("The server D finished sending the response and updated room status to the main server.\n");
-                }
-                else
-                {
-                    printf("Cannot make a reservation.Room %s is not available.\n", roomcode);
-                    char *reservation_message = "The requested room is not available.";
-                    if (sendto(sockfd_serverD_UDP, reservation_message, strlen(reservation_message) + 1, 0, (struct sockaddr *)&main_addr, main_addr_size) < 0)
-                    {
-                        perror("[ERROR] Server D: fail to send availability result to Main server");
-                        exit(1);
-                    }
-                    printf("The server D finished sending the response to the main server.\n");
-                }
-                break; // Exit the loop after handling the found room
+                printf("Not able to find the room layout.\n");
+                char *message = "Not able to find the room layout.";
+                sendto(sockfd_serverD_UDP, message, strlen(message) + 1, 0, (struct sockaddr *)&main_addr, main_addr_size);
             }
+            printf("The Server D finished sending the response to the main server.\n");
         }
-        if (!roomFound) // If no room was found
+        else
         {
-            printf("Cannot make a reservation.Not able to find the room layout.\n");
-            char *message = "Cannot make a reservation.Not able to find the room layout.";
-            sendto(sockfd_serverD_UDP, message, strlen(message) + 1, 0, (struct sockaddr *)&main_addr, main_addr_size);
-            printf("The server D finished sending the response to the main server.\n");
+            // Reservation Request
+            printf("The Server D received a reservation request from the main server.\n");
+            int roomFound = 0; // Flag to check if the room is found
+
+            for (int i = 0; i < roomCount; i++)
+            {
+                if (strcmp(roomData[i].roomCode, roomcode) == 0) // Corrected condition
+                {
+                    roomFound = 1; // Mark as found
+                    if (roomData[i].available > 0)
+                    {
+                        roomData[i].available--;
+                        printf("Successful reservation.The count of the Room %s is now %d.\n", roomcode, roomData[i].available);
+                        char reservation_message[200];
+                        sprintf(reservation_message, "Congratulation! The reservation for Room %s has been made.\n", roomcode);
+                        reservation_status = "success";
+                        snprintf(reservation_buf, sizeof(reservation_buf), "%s,%s", reservation_message, reservation_status); // 格式化消息,store reservation message and reservation status
+                        if (sendto(sockfd_serverD_UDP, reservation_buf, strlen(reservation_buf) + 1, 0, (struct sockaddr *)&main_addr, main_addr_size) < 0)
+                        {
+                            perror("[ERROR] Server D: fail to send availability result to Main server");
+                            exit(1);
+                        }
+                        printf("The Server D finished sending the response and the updated room status to the main server.\n");
+                    }
+                    else
+                    {
+                        printf("Cannot make a reservation.Room %s is not available.\n", roomcode);
+                        char *reservation_message = "Sorry!The requested room is not available.";
+                        reservation_status = "fail";
+                        snprintf(reservation_buf, sizeof(reservation_buf), "%s,%s", reservation_message, reservation_status); // 格式化消息,store reservation message and reservation status
+                        // printf("%s",reservation_buf);
+
+                        if (sendto(sockfd_serverD_UDP, reservation_buf, strlen(reservation_buf) + 1, 0, (struct sockaddr *)&main_addr, main_addr_size) < 0)
+                        {
+                            perror("[ERROR] Server D: fail to send availability result to Main server");
+                            exit(1);
+                        }
+                        printf("The Server D finished sending the response to the main server.\n");
+                    }
+                    break; // Exit the loop after handling the found room
+                }
+            }
+            if (!roomFound) // If no room was found
+            {
+                printf("Cannot make a reservation.Not able to find the room layout.\n");
+                char *message = "Oops!Not able to find the room.";
+                sendto(sockfd_serverD_UDP, message, strlen(message) + 1, 0, (struct sockaddr *)&main_addr, main_addr_size);
+                printf("The Server D finished sending the response to the main server.\n");
+            }
         }
     }
 }
