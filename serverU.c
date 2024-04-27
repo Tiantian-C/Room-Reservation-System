@@ -249,10 +249,10 @@ int main()
                         snprintf(reservation_buf, sizeof(reservation_buf), "%s,%s", reservation_message, reservation_status); // 格式化消息,store reservation message and reservation status
                         if (sendto(sockfd_serverU_UDP, reservation_buf, strlen(reservation_buf) + 1, 0, (struct sockaddr *)&main_addr, main_addr_size) < 0)
                         {
-                            perror("[ERROR] Server S: fail to send availability result to Main server");
+                            perror("[ERROR] Server U: fail to send availability result to Main server");
                             exit(1);
                         }
-                        printf("The server U finished sending the response to the main server.\n");
+                        printf("The Server U finished sending the response to the main server.\n");
                     }
                     break; // Exit the loop after handling the found room
                 }
@@ -262,7 +262,7 @@ int main()
                 printf("Cannot make a reservation.Not able to find the room layout.\n");
                 char *message = "Oops!Not able to find the room.";
                 sendto(sockfd_serverU_UDP, message, strlen(message) + 1, 0, (struct sockaddr *)&main_addr, main_addr_size);
-                printf("The server U finished sending the response to the main server.\n");
+                printf("The Server U finished sending the response to the main server.\n");
             }
         }
     }
