@@ -312,7 +312,7 @@ void processClientRequest()
 // dispatch room availability requests based on the room code
 void dispatchRoomAvailabilityRequest(socklen_t dest_serverS_size, socklen_t dest_serverD_size, socklen_t dest_serverU_size)
 {
-    printf("The main server has received the availability request on Room %s from %s using TCP over %d\n", roomcode, unencrypted_username, Main_TCP_PORT);
+    printf("The main server has received the availability request on Room %s from %s using TCP over port %d\n", roomcode, unencrypted_username, Main_TCP_PORT);
     // 根据 roomcode 的首字母执行相应操作
     switch (roomcode[0])
     {
