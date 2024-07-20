@@ -1,9 +1,7 @@
-(a)Mengtian Chen
-(b)
-(c)
+(a)
 1. Built TCP and UDP connection between clients and servers. 
 2. Well-defined data format and accomplished the TCP and UDP message exchange.
-(d)
+(b)
 serverM.c:  
 1 UDP socket and 1 TCP socket is created in this file. The TCP socket is responsible for connecting with client, get the input and send the result back to client. The UDP socket is responsible for connecting with backend-servers to get reply.
 client.c:	  
@@ -14,7 +12,7 @@ serverD.c:
 1 UDP socket is created in this file. The backend-serverD get request of double room from main server and send reply to main server. 
 serverU.c:	
 1 UDP socket is created in this file. The backend-serverU get request of suite from main server and send reply to main server. 
-(e)
+(c)
 1.client.c
 - Store userdata(username|password) and send to main server:userdata_buf[MAXDATASIZE]
 - login result from main: login_result[MAXDATASIZE]; 
@@ -35,9 +33,9 @@ serverU.c:
 Similar to serverS
 5.serverU.c
 Similar to serverS
-(f)
+(d)
 Idiosyncrasy Based on the test results run on given environment (Ubuntu 22.04), there was no idiosyncrasy found
-(g)Beej's Code: http://www.beej.us/guide/bgnet/
+(e)Beej's Code: http://www.beej.us/guide/bgnet/
 	-Create sockets (TCP / UDP);
         -Bind a socket;
         -Send & receive;
